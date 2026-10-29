@@ -1,0 +1,19 @@
+# /etc/systemd/system/my-ip.service on dev3 (no system node there, so a pinned container)
+[Unit]
+Description=my.ip (public IPv4 + IPv6 echo)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+EnvironmentFile=/etc/my-ip.env
+ExecStartPre=-/usr/bin/docker rm -f my-ip
+ExecStart=/usr/bin/docker run --rm --name my-ip --network host --read-only \
+  --user 65534:65534 --memory 128m \
+  -e PORT=8797 -e BIND=127.0.0.1 -e MYIP_KEY \
+  -v /opt/my.ip:/app:ro -w /app node:24-alpine node server.mjs
+ExecStop=/usr/bin/docker stop -t 5 my-ip
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
