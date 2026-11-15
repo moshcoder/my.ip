@@ -72,3 +72,10 @@ test('html escapes and embeds both hosts', async () => {
 test('unknown paths 404', async () => {
   assert.equal((await ask('/admin', '2.56.246.141')).status, 404)
 })
+
+test('clientAddress prefers the first X-Forwarded-For entry (c0mpute gateway)', async () => {
+  const { clientAddress } = await import('../server.mjs')
+  assert.equal(clientAddress({ 'x-forwarded-for': '203.0.113.7, 127.0.0.1' }, '127.0.0.1'), '203.0.113.7')
+  assert.equal(clientAddress({ 'x-real-ip': '198.51.100.2' }, '127.0.0.1'), '198.51.100.2')
+  assert.equal(clientAddress({}, '::ffff:192.0.2.1'), '::ffff:192.0.2.1')
+})
