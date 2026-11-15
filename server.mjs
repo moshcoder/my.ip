@@ -45,6 +45,12 @@ export function normalizeIp(raw) {
   return null
 }
 
+/** The visitor's address: first X-Forwarded-For entry, else X-Real-IP, else the socket peer. */
+export function clientAddress(headers, socketAddr) {
+  const xff = String(headers['x-forwarded-for'] || '').split(',')[0].trim()
+  return xff || headers['x-real-ip'] || socketAddr
+}
+
 export const family = (ip) => (isIPv4(ip) ? 4 : isIPv6(ip) ? 6 : 0)
 
 const mac = (key, fam, ip, exp) =>
@@ -185,8 +191,9 @@ export function serve(cfg = config()) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url || '/', `http://${cfg.host}`)
-      // nginx is the only thing that can reach us (127.0.0.1 bind), and it sets X-Real-IP.
-      const remote = req.headers['x-real-ip'] || req.socket.remoteAddress
+      // Only a proxy can reach us: nginx sets X-Real-IP; a c0mpute gateway (c0mpute Apps)
+      // sets X-Forwarded-For, whose first entry is the visitor.
+      const remote = clientAddress(req.headers, req.socket.remoteAddress)
       const out = await answer({ url, accept: req.headers.accept || '', remote, hostHeader: req.headers['x-forwarded-host'] || req.headers.host }, cfg)
       res.writeHead(out.status, out.headers)
       res.end(req.method === 'HEAD' ? undefined : out.body)
